@@ -94,8 +94,8 @@ A Software Bill of Materials (SBOM) is a machine-readable inventory of all depen
    python -m pip install cyclonedx-bom
    
    # Generate a CycloneDX SBOM from requirements.txt
-   python -m cyclonedx_py requirements -i requirements.txt 2>/dev/null > sbom.xml
-   cat sbom.xml
+   python -m cyclonedx_py requirements -i requirements.txt 2>/dev/null > sbom.json
+   cat sbom.json
    ```
 
 2. **Use Copilot to summarize:**
@@ -110,7 +110,7 @@ A Software Bill of Materials (SBOM) is a machine-readable inventory of all depen
 
 3. **Commit your SBOM:**
    ```bash
-   git add sbom.xml
+   git add sbom.json
    git commit -m "lab07: Add CycloneDX SBOM"
    ```
 
@@ -120,7 +120,7 @@ A Software Bill of Materials (SBOM) is a machine-readable inventory of all depen
    ```
    Chat prompt: "Analyze this requirements.txt for known CVEs and security issues:
    
-   [paste contents of sbom.xml or requirements.txt]
+   [paste contents of sbom.json or requirements.txt]
    
    For each potential issue, provide:
    - Package name
@@ -268,8 +268,8 @@ Each job depends on the previous one (`needs:`). A CVE above the threshold fails
    build:
      - checkout, setup Python 3.11
      - install lab07/requirements.txt
-     - generate a CycloneDX SBOM: pip install cyclonedx-bom && python -m cyclonedx_py requirements -i lab07/requirements.txt > lab07/sbom.xml
-     - upload sbom.xml as artifact 'sbom'
+     - generate a CycloneDX SBOM: pip install cyclonedx-bom && python -m cyclonedx_py requirements -i lab07/requirements.txt > lab07/sbom.json
+     - upload sbom.json as artifact 'sbom'
 
    scan:
      - download artifact 'sbom'
@@ -314,9 +314,9 @@ Each job depends on the previous one (`needs:`). A CVE above the threshold fails
            run: |
              pip install cyclonedx-bom
              python -m cyclonedx_py requirements \
-               -i lab07/requirements.txt > lab07/sbom.xml
+               -i lab07/requirements.txt > lab07/sbom.json
          - uses: actions/upload-artifact@v4
-           with: { name: sbom, path: lab07/sbom.xml }
+           with: { name: sbom, path: lab07/sbom.json }
 
      scan:
        runs-on: ubuntu-latest
