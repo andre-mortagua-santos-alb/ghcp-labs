@@ -1,7 +1,7 @@
 # Security Vulnerability Scan Report
 
 **Generated:** 2026-06-19  
-**SBOM:** sbom.xml (CycloneDX 1.6)  
+**SBOM:** sbom.json (CycloneDX 1.6)  
 **Scanner:** Manual CVE analysis against NIST NVD + pip-audit
 
 ---
