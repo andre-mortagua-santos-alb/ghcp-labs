@@ -1,0 +1,105 @@
+# docker-compose.yml
+# Lab07 — Reminder Engine: multi-service composition
+# Services: reminder-engine (Python), postgres (PostgreSQL 16)
+# Follows containerization-docker-best-practices: named volumes,
+# custom bridge network, health checks, non-root user, pinned image tags.
+
+services:
+
+  # ── Reminder Engine ──────────────────────────────────────────────────────────
+  reminder-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Pass build-time target so multi-stage builds can stop at the right stage
+      target: production
+    image: reminder-engine:latest
+    container_name: reminder-engine
+    restart: unless-stopped
+
+    # All runtime config via environment variables — never hardcoded in the image
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-reminders}
+      - DB_USER=${POSTGRES_USER:-reminder_user}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?DB password must be set}
+      - APP_ENV=${APP_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+
+    # Only expose to the internal network; no host-port binding in production
+    expose:
+      - "8000"
+
+    # Wait for postgres to be healthy before starting
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    # Health check: verify the app process is responsive
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    # Attach to the custom bridge network only
+    networks:
+      - reminder-net
+
+    # Mount source code as read-only in production; logs to named volume
+    volumes:
+      - app-logs:/app/logs
+
+  # ── PostgreSQL Database ───────────────────────────────────────────────────────
+  postgres:
+    # Pinned minor version for reproducibility — never use 'latest' in production
+    image: postgres:16.3-alpine
+    container_name: reminder-postgres
+    restart: unless-stopped
+
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-reminders}
+      - POSTGRES_USER=${POSTGRES_USER:-reminder_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?DB password must be set}
+      # Store data in a known, non-default location inside the named volume
+      - PGDATA=/var/lib/postgresql/data/pgdata
+
+    # Named volume for durable data persistence across container restarts
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Optional: mount init SQL scripts to seed schema on first start
+      # - ./db/init:/docker-entrypoint-initdb.d:ro
+
+    # Do not expose postgres to the host in production
+    expose:
+      - "5432"
+
+    # Health check: use pg_isready to confirm the database is accepting connections
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reminder_user} -d ${POSTGRES_DB:-reminders}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+    networks:
+      - reminder-net
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+# Custom bridge network for isolated service-to-service communication.
+# Containers on this network resolve each other by service name (e.g. "postgres").
+networks:
+  reminder-net:
+    driver: bridge
+    name: reminder-net
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+# Named volumes managed by Docker — survive container removal,
+# isolated from the host filesystem (no bind-mount path leakage).
+volumes:
+  postgres-data:
+    name: reminder-postgres-data
+  app-logs:
+    name: reminder-app-logs
